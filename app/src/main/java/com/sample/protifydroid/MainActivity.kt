@@ -1,5 +1,6 @@
 package com.sample.protifydroid
 
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -37,9 +38,22 @@ class MainActivity : AppCompatActivity() {
         }
     }
     fun onClientsUpdate() {
-        runOnUiThread {
-            if (!listViewOnProcessus) {
-                clientsListAdapter.dataSet = communicationManager.getConnectedClient()
+        dlog("Asking for Connected Clients")
+        communicationManager.askForConnectedClients()
+    }
+    fun onConnectedClientsReceived(connectedClients: List<String>) {
+        dlog("Received Connected Clients: $connectedClients")
+        if (!listViewOnProcessus) {
+            runOnUiThread {
+                clientsListAdapter.dataSet = connectedClients
+                clientsListAdapter.notifyDataSetChanged()
+            }
+        }
+    }
+    fun onClientProcessusReceived(processus: List<String>, clientIndex: Int) {
+        if (listViewOnProcessus) {
+            runOnUiThread {
+                clientsListAdapter.dataSet = processus
                 clientsListAdapter.notifyDataSetChanged()
             }
         }
@@ -48,8 +62,7 @@ class MainActivity : AppCompatActivity() {
         if (!listViewOnProcessus) {
             runOnUiThread {
                 listViewOnProcessus = true
-                clientsListAdapter.dataSet = communicationManager.getClientProcessus(position)
-                clientsListAdapter.notifyDataSetChanged()
+                communicationManager.askForClientProcessus(position)
             }
         }
     }
@@ -59,13 +72,24 @@ class MainActivity : AppCompatActivity() {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
         val pendingIntent: PendingIntent = PendingIntent.getActivity(this, 0, intent, 0)
-        var builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_finished)
-            .setContentTitle(message)
-            .setContentText("")
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setContentIntent(pendingIntent)
-            .setAutoCancel(true)
+        val stopServerIntent: PendingIntent =
+            Intent(this, ServerService::class.java).apply{
+                putExtra(ServerService.STOP_SERVICE_INTENT_EXTRA_KEY, true)
+            }.let {
+                PendingIntent.getService(this, 1, it, 0)
+            }
+        var builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Notification.Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_finished)
+                .setContentTitle(message)
+                .setContentText("")
+                .addAction(Notification.Action.Builder(R.drawable.ic_trash, "Stop Server", stopServerIntent).build())
+                .setContentIntent(pendingIntent)
+                .setChannelId(CHANNEL_ID)
+                .setAutoCancel(true)
+        } else {
+            TODO("VERSION.SDK_INT < O")
+        }
         with(NotificationManagerCompat.from(this)) {
             // notificationId is a unique int for each notification that you must define
             notify(Random().nextInt(100), builder.build())
@@ -74,17 +98,14 @@ class MainActivity : AppCompatActivity() {
     }
     override fun onBackPressed() {
         if (listViewOnProcessus) {
-            runOnUiThread {
-                listViewOnProcessus = false
-                clientsListAdapter.dataSet = communicationManager.getConnectedClient()
-                clientsListAdapter.notifyDataSetChanged()
-            }
+            listViewOnProcessus = false
+            communicationManager.askForConnectedClients()
         } else {
             super.onBackPressed()
         }
     }
     private val clientsListAdapter : StringListViewAdapter by lazy {
-        StringListViewAdapter(this, communicationManager.getConnectedClient())
+        StringListViewAdapter(this, listOf())
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         AppCompatDelegate.setDefaultNightMode(MODE_NIGHT_YES)
@@ -92,7 +113,7 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val name = "ChannelName"
             val descriptionText = "ChannelDescription"
-            val importance = NotificationManager.IMPORTANCE_DEFAULT
+            val importance = NotificationManager.IMPORTANCE_HIGH
             val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
                 description = descriptionText
             }
@@ -101,8 +122,14 @@ class MainActivity : AppCompatActivity() {
                 getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.createNotificationChannel(channel)
         }
+        communicationManager.setOnConnectedClients(::onConnectedClientsReceived)
+        communicationManager.setOnClientProcessus(::onClientProcessusReceived)
+        communicationManager.startServerService()
+        communicationManager.bindToServer()
+    }
+    override fun onStart() {
+            super.onStart()
         setContentView(R.layout.activity_main)
-        communicationManager.startServer()
         findViewById<RecyclerView>(R.id.clientsListView).run {
             adapter = clientsListAdapter
             layoutManager = LinearLayoutManager(this@MainActivity)

@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Protifydroid</string>
+    <string name="server_service_description">Service that runs the tcp server and all the tcp connections to receive notifications even when the Protifydroid activity is closed.</string>
 </resources>

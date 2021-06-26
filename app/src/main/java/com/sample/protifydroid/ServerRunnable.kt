@@ -9,8 +9,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
 class ServerRunnable(
-        private val activity: MainActivity,
-        private val communicationManager: CommunicationManager):
+        private val serverService: ServerService):
         Runnable
 {
     companion object {
@@ -23,7 +22,7 @@ class ServerRunnable(
     val clients = mutableListOf<ServerClientHandler>()
     private fun dlog(message: String) {
         Log.d(TAG, message)
-        activity.messageToDebugTextView("$TAG>$message")
+        serverService.messageToDebugTextView("$TAG>$message")
     }
     inline fun getClientProcessus(index: Int) : List<String> {
         return clients[index].toClient().processus
@@ -32,14 +31,14 @@ class ServerRunnable(
         return clients.map(ServerClientHandler::toClient).map{it.name}
     }
     fun onNewNotification(message: String) {
-        communicationManager.onNewNotification(message)
+        serverService.onNewNotification(message)
     }
     fun onClientDisconnected(client: ServerClientHandler) {
         clients.remove(client)
-        communicationManager.onClientsUpdate()
+        serverService.onClientsUpdate()
     }
     fun onClientUpdated() {
-        communicationManager.onClientsUpdate()
+        serverService.onClientsUpdate()
     }
     fun stop() {
         println("[log] ServerRunnable: Stop")
@@ -49,7 +48,7 @@ class ServerRunnable(
     override fun run() {
         running.set(true)
         val assignedPort = serverSocket.localPort
-        communicationManager.onServerPortAssigned(assignedPort)
+        serverService.onServerPortAssigned(assignedPort)
         while (running.get()) {
             val socket : Socket = try {
                 serverSocket.accept()
@@ -58,7 +57,7 @@ class ServerRunnable(
             }
             dlog("Client connected: ${socket.inetAddress.hostAddress}")
             // Run client in it's own thread.
-            val client = ServerClientHandler(activity, socket, this)
+            val client = ServerClientHandler(serverService, socket, this)
             clients += client
             Executors.newSingleThreadExecutor().execute {
                 client.run()

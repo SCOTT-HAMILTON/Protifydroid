@@ -12,7 +12,7 @@ import java.nio.charset.Charset
 import java.util.*
 import java.util.concurrent.atomic.AtomicBoolean
 
-class ServerClientHandler(private val activity: MainActivity,
+class ServerClientHandler(private val serverService: ServerService,
                           private val client: Socket,
                           private val serverRunnable: ServerRunnable) {
     companion object {
@@ -29,7 +29,7 @@ class ServerClientHandler(private val activity: MainActivity,
     private fun dlog(message: String) {
         reader
         Log.d(TAG, message)
-        activity.messageToDebugTextView("$TAG>$message")
+        serverService.messageToDebugTextView("$TAG>$message")
     }
     private fun onNewMessage(message: String) : String {
         when {
