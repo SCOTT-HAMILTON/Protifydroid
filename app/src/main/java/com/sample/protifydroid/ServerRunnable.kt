@@ -24,8 +24,12 @@ class ServerRunnable(
         Log.d(TAG, message)
         serverService.messageToDebugTextView("$TAG>$message")
     }
-    inline fun getClientProcessus(index: Int) : List<String> {
-        return clients[index].toClient().processus
+    inline fun getClientProcessus(index: Int) : List<String>? {
+        return if (index >= 0 && index < clients.size) {
+            clients[index].toClient().processus
+        } else {
+            null
+        }
     }
     inline fun clientExists(name: String) : Boolean {
         return clients.map{it.toClient().name}.contains(name)

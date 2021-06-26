@@ -50,9 +50,18 @@ class ServerService : Service() {
                 }
                 MSG_UNREGISTER_CLIENT -> mClients.remove(msg.replyTo)
                 MSG_ASK_CLIENT_PROCESSUS -> {
-                    sendBundleMessage(MSG_CLIENT_PROCESSUS_ANWSER, bundleOf(
-                        PROCESSUS_BUNDLE_KEY to serverRunnable.getClientProcessus(msg.arg1),
-                        CLIENT_NAME_BUNDLE_KEY to serverRunnable.getConnectedClient()[msg.arg1]))
+                    val clientProcessus = serverRunnable.getClientProcessus(msg.arg1)
+                    val connectedClients = serverRunnable.getConnectedClient()
+                    if (msg.arg1 >= 0 && msg.arg1 < connectedClients.size) {
+                        clientProcessus?.also {
+                            sendBundleMessage(
+                                MSG_CLIENT_PROCESSUS_ANWSER, bundleOf(
+                                    PROCESSUS_BUNDLE_KEY to clientProcessus,
+                                    CLIENT_NAME_BUNDLE_KEY to connectedClients[msg.arg1]
+                                )
+                            )
+                        }
+                    }
                 }
                 MSG_ASK_CONNECTED_CLIENTS -> {
                     sendBundleMessage(MSG_CONNECTED_CLIENTS_ANWSER, bundleOf(
@@ -113,7 +122,7 @@ class ServerService : Service() {
             Toast.makeText(this, "Server Service Stopping", Toast.LENGTH_SHORT).show()
             val notificationManager: NotificationManager =
                 getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.cancel(notificationId)
+            notificationManager.cancelAll()
             stopSelf()
             START_NOT_STICKY
         } else {
@@ -150,6 +159,7 @@ class ServerService : Service() {
         }
     }
     fun sendBundleMessage(code: Int, bundle: Bundle) {
+        println("[log] Lol AB 1")
         for (i in mClients.indices.reversed()) {
             try {
                 mClients[i].send(
@@ -167,6 +177,8 @@ class ServerService : Service() {
                 mClients.removeAt(i)
             }
         }
+        println("[log] Lol AB 1 after")
+
     }
     fun sendMessage(code: Int, message: String) {
         sendBundleMessage(code, bundleOf("message" to message))
