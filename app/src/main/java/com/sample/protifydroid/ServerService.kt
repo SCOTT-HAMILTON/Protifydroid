@@ -52,7 +52,7 @@ class ServerService : Service() {
                 MSG_ASK_CLIENT_PROCESSUS -> {
                     sendBundleMessage(MSG_CLIENT_PROCESSUS_ANWSER, bundleOf(
                         PROCESSUS_BUNDLE_KEY to serverRunnable.getClientProcessus(msg.arg1),
-                        CLIENT_INDEX_BUNDLE_KEY to msg.arg1))
+                        CLIENT_NAME_BUNDLE_KEY to serverRunnable.getConnectedClient()[msg.arg1]))
                 }
                 MSG_ASK_CONNECTED_CLIENTS -> {
                     sendBundleMessage(MSG_CONNECTED_CLIENTS_ANWSER, bundleOf(
@@ -230,7 +230,7 @@ class ServerService : Service() {
 
         const val CHANNEL_ID = "com.sample.protifydroid.notif-serverservice-channelid"
         const val PROCESSUS_BUNDLE_KEY = "processus"
-        const val CLIENT_INDEX_BUNDLE_KEY = "clientIndex"
+        const val CLIENT_NAME_BUNDLE_KEY = "clientName"
         const val CONNECTED_CLIENTS_BUNDLE_KEY = "connectedClients"
         const val STOP_SERVICE_INTENT_EXTRA_KEY = "stopService"
     }

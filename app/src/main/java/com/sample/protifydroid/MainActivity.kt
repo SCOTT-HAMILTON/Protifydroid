@@ -25,7 +25,7 @@ class MainActivity : AppCompatActivity() {
         private const val CHANNEL_ID = "com.sample.protifydroid.notif-channelid"
     }
     private val communicationManager = CommunicationManager(this)
-    private var listViewOnProcessus = false
+    private var selectedClient = ""
     private fun dlog(message: String) {
         Log.d(TAG, message)
         messageToDebugTextView("$TAG>$message")
@@ -40,30 +40,49 @@ class MainActivity : AppCompatActivity() {
     fun onClientsUpdate() {
         dlog("Asking for Connected Clients")
         communicationManager.askForConnectedClients()
-    }
-    fun onConnectedClientsReceived(connectedClients: List<String>) {
-        dlog("Received Connected Clients: $connectedClients")
-        if (!listViewOnProcessus) {
-            runOnUiThread {
-                clientsListAdapter.dataSet = connectedClients
-                clientsListAdapter.notifyDataSetChanged()
+        if (selectedClient != "") {
+            val index = clientsListAdapter.dataSet.indexOf(selectedClient)
+            if (index != -1) {
+                communicationManager.askForClientProcessus(index)
             }
         }
     }
-    fun onClientProcessusReceived(processus: List<String>, clientIndex: Int) {
-        if (listViewOnProcessus) {
+    fun onConnectedClientsReceived(connectedClients: List<String>) {
+        dlog("selectedClient : $selectedClient, Received Connected Clients: $connectedClients")
+        if (selectedClient == "" && connectedClients.isNotEmpty()) {
+            selectedClient = connectedClients[0]
+            dlog("selectedClient : $selectedClient, Asking for Client processus")
+            communicationManager.askForClientProcessus(0)
+        }
+        if (selectedClient != "" && !connectedClients.contains(selectedClient)) {
+            if (connectedClients.isEmpty()) {
+                selectedClient = ""
+                processusListAdapter.dataSet = listOf()
+                processusListAdapter.notifyDataSetChanged()
+            } else {
+                selectedClient = connectedClients[0]
+                communicationManager.askForClientProcessus(0)
+            }
+        }
+        runOnUiThread {
+            clientsListAdapter.dataSet = connectedClients
+            clientsListAdapter.notifyDataSetChanged()
+        }
+}
+    fun onClientProcessusReceived(processus: List<String>, clientName: String) {
+        dlog("Received Client Processus: $processus, clientName: $clientName, selectedClient: $selectedClient")
+        if (clientName == selectedClient) {
+            dlog("AMENA!!!")
             runOnUiThread {
-                clientsListAdapter.dataSet = processus
-                clientsListAdapter.notifyDataSetChanged()
+                processusListAdapter.dataSet = processus
+                processusListAdapter.notifyDataSetChanged()
             }
         }
     }
     fun onClientClicked(position: Int) {
-        if (!listViewOnProcessus) {
-            runOnUiThread {
-                listViewOnProcessus = true
-                communicationManager.askForClientProcessus(position)
-            }
+        selectedClient = clientsListAdapter.dataSet[position]
+        runOnUiThread {
+            communicationManager.askForClientProcessus(position)
         }
     }
     fun onNewNotification(message: String) {
@@ -96,15 +115,10 @@ class MainActivity : AppCompatActivity() {
         }
 
     }
-    override fun onBackPressed() {
-        if (listViewOnProcessus) {
-            listViewOnProcessus = false
-            communicationManager.askForConnectedClients()
-        } else {
-            super.onBackPressed()
-        }
-    }
     private val clientsListAdapter : StringListViewAdapter by lazy {
+        StringListViewAdapter(this, listOf())
+    }
+    private val processusListAdapter : StringListViewAdapter by lazy {
         StringListViewAdapter(this, listOf())
     }
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -132,6 +146,10 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         findViewById<RecyclerView>(R.id.clientsListView).run {
             adapter = clientsListAdapter
+            layoutManager = LinearLayoutManager(this@MainActivity)
+        }
+        findViewById<RecyclerView>(R.id.processusListView).run {
+            adapter = processusListAdapter
             layoutManager = LinearLayoutManager(this@MainActivity)
         }
     }

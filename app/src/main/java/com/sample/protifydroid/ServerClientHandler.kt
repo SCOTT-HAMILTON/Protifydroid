@@ -34,10 +34,16 @@ class ServerClientHandler(private val serverService: ServerService,
     private fun onNewMessage(message: String) : String {
         when {
             message.startsWith("name=") -> {
-                dataClient = dataClient.copy(name = message.substringAfter("name="))
-                serverRunnable.onClientUpdated()
-                dlog("Name received : ${dataClient.name}")
-                return ""
+                val name = message.substringAfter("name=")
+                if (serverRunnable.clientExists(name)) {
+                    shutdown()
+                    return ""
+                } else {
+                    dataClient = dataClient.copy(name = name)
+                    serverRunnable.onClientUpdated()
+                    dlog("Name received : ${dataClient.name}")
+                    return ""
+                }
             }
             message.startsWith("processus=") -> {
                 val processusStr = message.substringAfter("processus=")

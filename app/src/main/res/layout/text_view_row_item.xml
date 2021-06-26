@@ -9,5 +9,7 @@
         android:id="@+id/textViewRowItem"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Unknown"/>
+        android:text="Unknown"
+        android:textScaleX="0.9"
+        android:textSize="10sp" />
 </FrameLayout>

@@ -20,21 +20,28 @@ class CommunicationManager(private val activity: MainActivity) {
         private const val SERVICE_TYPE = "_examplednssd._tcp"
         private const val SERVICE_PORT = 7755
     }
-    private var onClientProcessusCallback: ((List<String>, Int)->Unit)? = null
+    private var onClientProcessusCallback: ((List<String>, String)->Unit)? = null
     private var onConnectedClients: ((List<String>)->Unit)? = null
     fun startServerService() {
         activity.startService(Intent(activity, ServerService::class.java).apply{
             putExtra(ServerService.STOP_SERVICE_INTENT_EXTRA_KEY, false)
         })
     }
-    fun sendMessage(code: Int) {
+    fun sendMessage(code: Int, arg1: Int? = null) {
         if (mIsBound) {
             mService?.also { messenger ->
                 try {
-                    val msg: Message = Message.obtain(
-                        null,
-                        code
-                    )
+                    val msg: Message = when (arg1) {
+                        null -> Message.obtain(
+                            null,
+                            code
+                        )
+                        else -> Message.obtain(
+                            null,
+                            code, arg1, 0, null
+                        )
+                    }
+
                     messenger.send(msg)
                 } catch (e: RemoteException) {
                 }
@@ -42,9 +49,9 @@ class CommunicationManager(private val activity: MainActivity) {
         }
     }
     fun askForClientProcessus(index: Int) {
-        sendMessage(ServerService.MSG_ASK_CLIENT_PROCESSUS)
+        sendMessage(ServerService.MSG_ASK_CLIENT_PROCESSUS, index)
     }
-    fun setOnClientProcessus(callback: (List<String>, Int)->Unit) {
+    fun setOnClientProcessus(callback: (List<String>, String)->Unit) {
         onClientProcessusCallback = callback
     }
     fun askForConnectedClients() {
@@ -141,7 +148,7 @@ class CommunicationManager(private val activity: MainActivity) {
                 ServerService.MSG_CLIENT_PROCESSUS_ANWSER -> {
                     onClientProcessusCallback?.invoke(
                         msg.data[ServerService.PROCESSUS_BUNDLE_KEY] as List<String>,
-                        msg.data[ServerService.CLIENT_INDEX_BUNDLE_KEY] as Int)
+                        msg.data[ServerService.CLIENT_NAME_BUNDLE_KEY] as String)
                 }
                 ServerService.MSG_CONNECTED_CLIENTS_ANWSER -> {
                     dlog("Received connected clients answer : ${msg.data[ServerService.CONNECTED_CLIENTS_BUNDLE_KEY] as List<String>}")

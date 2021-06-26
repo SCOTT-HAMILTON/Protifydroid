@@ -27,6 +27,9 @@ class ServerRunnable(
     inline fun getClientProcessus(index: Int) : List<String> {
         return clients[index].toClient().processus
     }
+    inline fun clientExists(name: String) : Boolean {
+        return clients.map{it.toClient().name}.contains(name)
+    }
     inline fun getConnectedClient() : List<String> {
         return clients.map(ServerClientHandler::toClient).map{it.name}
     }
