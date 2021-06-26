@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Protifydroid</string>
+    <string name="server_service_description">Service qui fait tourner le serveur et toutes les connections pour pouvoir recevoir les notification même quand Protifydroid est fermée.</string>
+    <string name="stop_server_intent_action_text">Arrêter le Serveur</string>
+    <string name="foreground_notification_title">Le Serveur de Protifydroid est lancé</string>
+    <string name="foreground_notification_ticker_text">Le Serveur est lancé</string>
+    <string name="service_stopping_text">Le Serveur s\'arrête</string>
+    <string name="service_stopped_text">Le Serveur est arrêté</string>
+    <string name="logs_text">Journaux</string>
+</resources>

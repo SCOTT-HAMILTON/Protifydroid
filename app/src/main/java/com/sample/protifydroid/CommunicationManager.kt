@@ -42,7 +42,6 @@ class CommunicationManager(private val activity: MainActivity) {
                             code, arg1, 0, null
                         )
                     }
-
                     messenger.send(msg)
                 } catch (e: RemoteException) {
                 }
@@ -70,7 +69,6 @@ class CommunicationManager(private val activity: MainActivity) {
         registerService()
     }
     fun stopEverything() {
-        println("[log] CommunicationManager: On StopEverything")
         stoppedEverything = true
         try {
             nsdManager.unregisterService(registrationListener)
@@ -119,7 +117,7 @@ class CommunicationManager(private val activity: MainActivity) {
         val serviceInfo = NsdServiceInfo().apply {
             // The name is subject to change based on conflicts
             // with other services advertised on the same network.
-            serviceName = "TestServerAndroid"
+            serviceName = "ProtifyAndroidServer"
             serviceType = SERVICE_TYPE
             port = SERVICE_PORT
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {

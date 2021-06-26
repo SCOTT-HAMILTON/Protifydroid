@@ -101,12 +101,13 @@ class ServerService : Service() {
             }
         val notification: Notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, CHANNEL_ID)
-                .setContentTitle("Protifydroid Server Service is running")
+                .setContentTitle(getString(R.string.foreground_notification_title))
                 .setContentText("")
                 .setSmallIcon(R.drawable.ic_finished)
                 .setContentIntent(pendingIntent)
-                .addAction(Notification.Action.Builder(R.drawable.ic_trash, "Stop Server", stopServiceIntent).build())
-                .setTicker("Service has started")
+                .addAction(Notification.Action.Builder(R.drawable.ic_trash,
+                    getString(R.string.stop_server_intent_action_text), stopServiceIntent).build())
+                .setTicker(getString(R.string.foreground_notification_ticker_text))
                 .setChannelId(CHANNEL_ID)
                 .build()
         } else {
@@ -119,7 +120,8 @@ class ServerService : Service() {
     }
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
         return if (intent.getBooleanExtra(STOP_SERVICE_INTENT_EXTRA_KEY, false)) {
-            Toast.makeText(this, "Server Service Stopping", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.service_stopping_text),
+                Toast.LENGTH_SHORT).show()
             val notificationManager: NotificationManager =
                 getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             notificationManager.cancelAll()
@@ -132,7 +134,8 @@ class ServerService : Service() {
     override fun onDestroy() {
         // Tell the user we stopped.
         serverRunnable.stop()
-        Toast.makeText(this, "Server Service stopped", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, getString(R.string.service_stopped_text),
+            Toast.LENGTH_LONG).show()
     }
     /**
      * When binding to the service, we return an interface to our messenger
@@ -159,7 +162,6 @@ class ServerService : Service() {
         }
     }
     fun sendBundleMessage(code: Int, bundle: Bundle) {
-        println("[log] Lol AB 1")
         for (i in mClients.indices.reversed()) {
             try {
                 mClients[i].send(
@@ -177,8 +179,6 @@ class ServerService : Service() {
                 mClients.removeAt(i)
             }
         }
-        println("[log] Lol AB 1 after")
-
     }
     fun sendMessage(code: Int, message: String) {
         sendBundleMessage(code, bundleOf("message" to message))

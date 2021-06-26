@@ -100,7 +100,8 @@ class MainActivity : AppCompatActivity() {
                 .setSmallIcon(R.drawable.ic_finished)
                 .setContentTitle(message)
                 .setContentText("")
-                .addAction(Notification.Action.Builder(R.drawable.ic_trash, "Stop Server", stopServerIntent).build())
+                .addAction(Notification.Action.Builder(R.drawable.ic_trash,
+                    getString(R.string.stop_server_intent_action_text), stopServerIntent).build())
                 .setContentIntent(pendingIntent)
                 .setChannelId(CHANNEL_ID)
                 .setAutoCancel(true)
@@ -111,7 +112,6 @@ class MainActivity : AppCompatActivity() {
             // notificationId is a unique int for each notification that you must define
             notify(Random().nextInt(100), builder.build())
         }
-
     }
     private val clientsListAdapter : StringListViewAdapter by lazy {
         StringListViewAdapter(this, listOf())
