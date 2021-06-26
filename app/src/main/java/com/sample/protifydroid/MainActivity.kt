@@ -70,9 +70,7 @@ class MainActivity : AppCompatActivity() {
         }
 }
     fun onClientProcessusReceived(processus: List<String>, clientName: String) {
-        dlog("Received Client Processus: $processus, clientName: $clientName, selectedClient: $selectedClient")
         if (clientName == selectedClient) {
-            dlog("AMENA!!!")
             runOnUiThread {
                 processusListAdapter.dataSet = processus
                 processusListAdapter.notifyDataSetChanged()

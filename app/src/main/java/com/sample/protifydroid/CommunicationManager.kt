@@ -20,6 +20,7 @@ class CommunicationManager(private val activity: MainActivity) {
         private const val SERVICE_TYPE = "_examplednssd._tcp"
         private const val SERVICE_PORT = 7755
     }
+    private var stoppedEverything = false
     private var onClientProcessusCallback: ((List<String>, String)->Unit)? = null
     private var onConnectedClients: ((List<String>)->Unit)? = null
     fun startServerService() {
@@ -70,6 +71,7 @@ class CommunicationManager(private val activity: MainActivity) {
     }
     fun stopEverything() {
         println("[log] CommunicationManager: On StopEverything")
+        stoppedEverything = true
         try {
             nsdManager.unregisterService(registrationListener)
         } catch (e: IllegalArgumentException) {}
@@ -106,8 +108,11 @@ class CommunicationManager(private val activity: MainActivity) {
         (activity.getSystemService(Context.NSD_SERVICE) as NsdManager)
     }
     private fun registerService() {
+        if (stoppedEverything) {
+            return
+        }
         if (m_localPort == null) {
-            return;
+            return
         }
         dlog("Registering service with local port : $m_localPort")
         // Create the NsdServiceInfo object, and populate it.
