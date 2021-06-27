@@ -154,13 +154,6 @@ class CommunicationManager(private val activity: MainActivity) {
                         msg.data[ServerService.CLIENT_NAME_BUNDLE_KEY] as String)
                 }
                 ServerService.MSG_CONNECTED_CLIENTS_ANWSER -> {
-                    dlog("Received connected clients answer : ${msg.data[ServerService.CONNECTED_CLIENTS_BUNDLE_KEY] as List<String>}")
-                    if (onConnectedClients == null) {
-                        dlog("But callback for onConnectedClients is null")
-                    } else {
-                        dlog("And callback for onConnectedClients isn't null !!!")
-
-                    }
                     onConnectedClients?.invoke(
                         msg.data[ServerService.CONNECTED_CLIENTS_BUNDLE_KEY] as List<String>
                     )

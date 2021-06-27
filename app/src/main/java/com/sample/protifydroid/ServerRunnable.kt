@@ -53,6 +53,7 @@ class ServerRunnable(
         serverSocket.close()
     }
     override fun run() {
+        dlog("\n\n\t\tNEW SERVEUR RUNNABLE LAUNCHED\n")
         running.set(true)
         val assignedPort = serverSocket.localPort
         serverService.onServerPortAssigned(assignedPort)

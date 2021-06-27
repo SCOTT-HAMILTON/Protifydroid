@@ -26,6 +26,9 @@ class MainActivity : AppCompatActivity() {
     }
     private val communicationManager = CommunicationManager(this)
     private var selectedClient = ""
+    private val notificationId: Int by lazy {
+        Random().nextInt(100)
+    }
     private fun dlog(message: String) {
         Log.d(TAG, message)
         messageToDebugTextView("$TAG>$message")
@@ -89,28 +92,22 @@ class MainActivity : AppCompatActivity() {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
         val pendingIntent: PendingIntent = PendingIntent.getActivity(this, 0, intent, 0)
-        val stopServerIntent: PendingIntent =
-            Intent(this, ServerService::class.java).apply{
-                putExtra(ServerService.STOP_SERVICE_INTENT_EXTRA_KEY, true)
-            }.let {
-                PendingIntent.getService(this, 1, it, 0)
-            }
-        var builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        var notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_finished)
                 .setContentTitle(message)
                 .setContentText("")
-                .addAction(Notification.Action.Builder(R.drawable.ic_trash,
-                    getString(R.string.stop_server_intent_action_text), stopServerIntent).build())
                 .setContentIntent(pendingIntent)
                 .setChannelId(CHANNEL_ID)
                 .setAutoCancel(true)
+                .build()
         } else {
             TODO("VERSION.SDK_INT < O")
         }
-        with(NotificationManagerCompat.from(this)) {
+        with(getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager) {
             // notificationId is a unique int for each notification that you must define
-            notify(Random().nextInt(100), builder.build())
+            dlog("\n\n\tNEW NOTIFICATION LAUNCHED!\n")
+            notify(notificationId, notification)
         }
     }
     private val clientsListAdapter : StringListViewAdapter by lazy {
