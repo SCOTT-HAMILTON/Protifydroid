@@ -21,7 +21,7 @@ Protify lets you choose long-running processes on your computer and it will watc
 To work with your computer, use the [Protify desktop app](https://github.com/SCOTT-HAMILTON/Protify). Protifydroid will only work if both your mobile and your computer are connected to the same local network such has your home's wifi. It uses mDNS under the hood.
 
 ## Building
-Protify is configured with Android Studio
+Protifydroid is configured with Android Studio
 
 ## License
-Protify is released under the well known [MIT License](https://scott-hamilton.mit-license.org/)
+Protifydroid is released under the well known [MIT License](https://scott-hamilton.mit-license.org/)
