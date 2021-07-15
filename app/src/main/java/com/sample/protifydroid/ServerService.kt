@@ -4,6 +4,9 @@ import android.app.*
 import android.content.Context
 import android.content.Intent
 import android.os.*
+import android.text.Html
+import android.text.Spanned
+import android.text.SpannedString
 import android.widget.Toast
 import androidx.core.os.bundleOf
 import java.util.*
@@ -82,8 +85,8 @@ class ServerService : Service() {
                 PendingIntent.getActivity(this, 0, notificationIntent, 0)
             }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val name = "ChannelName2"
-            val descriptionText = "ChannelDescription2"
+            val name = getString(R.string.server_notif_channel_name)
+            val descriptionText = getString(R.string.server_notif_channel_description)
             val importance = NotificationManager.IMPORTANCE_DEFAULT
             val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
                 description = descriptionText
@@ -99,6 +102,15 @@ class ServerService : Service() {
             }.let {
                 PendingIntent.getService(this, 1, it, 0)
             }
+        val htmlStopActionText: Spanned = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            Html.fromHtml(
+                "<font color=\"" + getColor(R.color.notification_color) + "\">" +
+                        getString(R.string.stop_server_notif_action_text) + "</font>",
+                Html.FROM_HTML_MODE_LEGACY)
+        } else {
+            SpannedString(getString(R.string.stop_server_notif_action_text))
+        }
+
         val notification: Notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, CHANNEL_ID)
                 .setContentTitle(getString(R.string.foreground_notification_title))
@@ -106,9 +118,11 @@ class ServerService : Service() {
                 .setSmallIcon(R.drawable.ic_finished)
                 .setContentIntent(pendingIntent)
                 .addAction(Notification.Action.Builder(R.drawable.ic_trash,
-                    getString(R.string.stop_server_intent_action_text), stopServiceIntent).build())
+                    htmlStopActionText, stopServiceIntent) .build())
                 .setTicker(getString(R.string.foreground_notification_ticker_text))
                 .setChannelId(CHANNEL_ID)
+                .setColorized(true)
+                .setColor(getColor(R.color.notification_color))
                 .build()
         } else {
             TODO("VERSION.SDK_INT < O")
@@ -240,7 +254,7 @@ class ServerService : Service() {
         const val MSG_ASK_CONNECTED_CLIENTS = 9
         const val MSG_CONNECTED_CLIENTS_ANWSER = 10
 
-        const val CHANNEL_ID = "com.sample.protifydroid.notif-serverservice-channelid"
+        const val CHANNEL_ID = "PROTIFY_SERVER_NOTIF_CHANNEL_ID"
         const val PROCESSUS_BUNDLE_KEY = "processus"
         const val CLIENT_NAME_BUNDLE_KEY = "clientName"
         const val CONNECTED_CLIENTS_BUNDLE_KEY = "connectedClients"

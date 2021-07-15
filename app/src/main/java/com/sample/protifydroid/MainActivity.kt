@@ -22,7 +22,7 @@ import java.util.*
 class MainActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "MainActivity"
-        private const val CHANNEL_ID = "com.sample.protifydroid.notif-channelid"
+        private const val CHANNEL_ID = "PROTIFY_NEW_NOTIF_CHANNEL_ID"
     }
     private val communicationManager = CommunicationManager(this)
     private var selectedClient = ""
@@ -100,6 +100,8 @@ class MainActivity : AppCompatActivity() {
                 .setContentIntent(pendingIntent)
                 .setChannelId(CHANNEL_ID)
                 .setAutoCancel(true)
+                .setColorized(true)
+                .setColor(getColor(R.color.notification_color))
                 .build()
         } else {
             TODO("VERSION.SDK_INT < O")
@@ -120,11 +122,13 @@ class MainActivity : AppCompatActivity() {
         AppCompatDelegate.setDefaultNightMode(MODE_NIGHT_YES)
         super.onCreate(savedInstanceState)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val name = "ChannelName"
-            val descriptionText = "ChannelDescription"
+            val name = getString(R.string.new_notif_channel_name)
+            val descriptionText = getString(R.string.new_notif_channel_description)
             val importance = NotificationManager.IMPORTANCE_HIGH
             val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
                 description = descriptionText
+                enableLights(true)
+                enableVibration(true)
             }
             // Register the channel with the system
             val notificationManager: NotificationManager =

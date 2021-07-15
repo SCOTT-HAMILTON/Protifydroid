@@ -2,10 +2,15 @@
 <resources>
     <string name="app_name">Protifydroid</string>
     <string name="server_service_description">Service qui fait tourner le serveur et toutes les connections pour pouvoir recevoir les notification même quand Protifydroid est fermée.</string>
-    <string name="stop_server_intent_action_text">Arrêter le Serveur</string>
-    <string name="foreground_notification_title">Le Serveur de Protifydroid est lancé</string>
-    <string name="foreground_notification_ticker_text">Le Serveur est lancé</string>
-    <string name="service_stopping_text">Le Serveur s\'arrête</string>
-    <string name="service_stopped_text">Le Serveur est arrêté</string>
+    <string name="stop_server_intent_action_text">Arrêter le serveur</string>
+    <string name="foreground_notification_title">Le serveur de Protifydroid est lancé</string>
+    <string name="foreground_notification_ticker_text">Le serveur est lancé</string>
+    <string name="service_stopping_text">Le serveur s\'arrête</string>
+    <string name="service_stopped_text">Le serveur est arrêté</string>
     <string name="logs_text">Journaux</string>
+    <string name="new_notif_channel_description">Canal de notifications utilisé lorsqu\'un utilisateur doit être notifié d\'un évènement</string>
+    <string name="new_notif_channel_name">Nouvelles notifications</string>
+    <string name="server_notif_channel_description">Canal de notifications utilisé pour controller le server</string>
+    <string name="server_notif_channel_name">Notification du serveur</string>
+    <string name="stop_server_notif_action_text">Arrêter le serveur</string>
 </resources>
