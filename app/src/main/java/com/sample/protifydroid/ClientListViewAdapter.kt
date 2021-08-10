@@ -6,9 +6,8 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 
-class StringListViewAdapter(private val activity: MainActivity, var dataSet: List<String>) :
-
-    RecyclerView.Adapter<StringListViewAdapter.ViewHolder>() {
+class ClientListViewAdapter(private val activity: MainActivity, var dataSet: List<Client>) :
+    RecyclerView.Adapter<ClientListViewAdapter.ViewHolder>() {
     class ViewHolder(private val activity: MainActivity, view: View) : RecyclerView.ViewHolder(view) {
         /**
          * Provide a reference to the type of views that you are using
@@ -18,7 +17,7 @@ class StringListViewAdapter(private val activity: MainActivity, var dataSet: Lis
         init {
             // Define click listener for the ViewHolder's View.
             textView.setOnClickListener {
-                 activity.onClientClicked(adapterPosition)
+                activity.onClientClicked(adapterPosition)
             }
         }
     }
@@ -33,7 +32,7 @@ class StringListViewAdapter(private val activity: MainActivity, var dataSet: Lis
     override fun onBindViewHolder(viewHolder: ViewHolder, position: Int) {
         // Get element from your dataset at this position and replace the
         // contents of the view with that element
-        viewHolder.textView.text = dataSet[position]
+        viewHolder.textView.text = dataSet[position].name
     }
     // Return the size of your dataset (invoked by the layout manager)
     override fun getItemCount() = dataSet.size

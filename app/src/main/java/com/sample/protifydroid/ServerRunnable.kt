@@ -1,77 +1,121 @@
 package com.sample.protifydroid
 
+import android.content.Context
 import android.util.Log
-import java.net.ServerSocket
-import java.net.Socket
-import java.net.SocketException
-import java.util.concurrent.Executors
+import kotlinx.coroutines.*
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
+import org.zeromq.SocketType
+import org.zeromq.ZContext
+import org.zeromq.ZMQ
+import org.zeromq.ZMQ.sleep
+import org.zeromq.ZMQException
+import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.concurrent.thread
+
+@Serializable
+data class ClientInfo(val alive: Boolean, val name: String, val processus: List<String>, val uuid: String)
+
+fun ClientInfo.toClient(): Client {
+    return Client(name, processus, UUID.fromString(uuid))
+}
 
 class ServerRunnable(
-        private val serverService: ServerService):
+    private val serverService: ServerService):
         Runnable
 {
     companion object {
-        private const val TAG = "ServerRunnable";
+        private const val TAG = "ServerRunnable"
     }
     private var running: AtomicBoolean = AtomicBoolean(true)
-    private val serverSocket : ServerSocket by lazy {
-        ServerSocket(0)
-    }
-    val clients = mutableListOf<ServerClientHandler>()
+    private val clients = ConcurrentHashMap<UUID, Client>()
+    private val mJson = Json
+    private var subscriber: ZMQ.Socket? = null
+    private var zmqContext = ZContext(1)
     private fun dlog(message: String) {
         Log.d(TAG, message)
-        serverService.messageToDebugTextView("$TAG>$message")
+//        serverService.messageToDebugTextView("$TAG>$message")
     }
-    inline fun getClientProcessus(index: Int) : List<String>? {
-        return if (index >= 0 && index < clients.size) {
-            clients[index].toClient().processus
-        } else {
-            null
-        }
+    private fun toast(message: String) {
+        Log.d(TAG, message)
+        serverService.toast("$TAG>$message")
     }
-    inline fun clientExists(name: String) : Boolean {
-        return clients.map{it.toClient().name}.contains(name)
+    fun getClient(uuid: UUID) : Client? {
+        return clients[uuid]
     }
-    inline fun getConnectedClient() : List<String> {
-        return clients.map(ServerClientHandler::toClient).map{it.name}
+    fun getConnectedClients() : List<Client> {
+        return clients.values.toList()
     }
-    fun onNewNotification(message: String) {
-        serverService.onNewNotification(message)
+    private fun onNewNotification(message: String) {
+//        serverService.onNewNotification(message)
     }
-    fun onClientDisconnected(client: ServerClientHandler) {
-        clients.remove(client)
-        serverService.onClientsUpdate()
+    private fun onClientUpdated() {
+//        serverService.onClientsUpdate()
     }
-    fun onClientUpdated() {
-        serverService.onClientsUpdate()
-    }
-    fun stop() {
+    fun stopEverything() {
         println("[log] ServerRunnable: Stop")
         running.set(false)
-        serverSocket.close()
+        subscriber?.close()
+        zmqContext.close()
+    }
+    fun debugFakeLoop() {
+        runBlocking {
+            CoroutineScope(Dispatchers.IO).launch {
+                while (running.get() && !Thread.currentThread().isInterrupted) {
+                    toast("Server Runnable Still Running")
+                    sleep(4)
+                }
+            }
+        }
     }
     override fun run() {
         dlog("\n\n\t\tNEW SERVEUR RUNNABLE LAUNCHED\n")
         running.set(true)
-        val assignedPort = serverSocket.localPort
-        serverService.onServerPortAssigned(assignedPort)
-        while (running.get()) {
-            val socket : Socket = try {
-                serverSocket.accept()
-            } catch (e: SocketException) {
-                continue
+//        debugFakeLoop()
+//        return
+        zmqContext.use { context ->
+            //  Connect to weather server
+            subscriber = context.createSocket(SocketType.SUB)
+            if (subscriber == null) {
+                dlog("Failed to initialize ZMQ subscriber socket, exitting")
+                stopEverything()
+                return
             }
-            dlog("Client connected: ${socket.inetAddress.hostAddress}")
-            // Run client in it's own thread.
-            val client = ServerClientHandler(serverService, socket, this)
-            clients += client
-            Executors.newSingleThreadExecutor().execute {
-                client.run()
+            subscriber?.let { subscriber ->
+                subscriber.receiveTimeOut = 10000
+                subscriber.subscribe("")
+                val assignedPort = subscriber.bindToRandomPort("tcp://*")
+                serverService.onServerPortAssigned(assignedPort)
+                while (running.get() && !Thread.currentThread().isInterrupted) {
+//                    toast("waiting for reply....")
+                    val received: ByteArray = try {
+                        subscriber.recv(0)
+                    } catch (e: ZMQException) {
+                        running.set(false)
+                        break
+                    } ?: continue
+                    val message = String(received)
+                    toast(message)
+                    val clientInfo = mJson.decodeFromString<ClientInfo>(message)
+//                    dlog("Received client info: $clientInfo")
+                    val realUuid = UUID.fromString(clientInfo.uuid)
+                    if (clients.containsKey(realUuid)) {
+                        if (clientInfo.alive) {
+                            clients[realUuid] = clientInfo.toClient()
+                            onClientUpdated()
+                        } else {
+                            clients.remove(realUuid)
+                            onClientUpdated()
+                        }
+                    } else {
+                        clients.putIfAbsent(realUuid, clientInfo.toClient())
+                        onClientUpdated()
+                    }
+                }
             }
         }
-        clients.forEach(ServerClientHandler::shutdown)
-        println("[log] ServerRunnable: Finished running")
+        toast("[log] ServerRunnable: Finished running")
     }
 }

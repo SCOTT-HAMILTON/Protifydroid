@@ -13,11 +13,13 @@ import android.util.Log
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.conversantmedia.util.concurrent.ConcurrentStack
+import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers.Main
 import java.util.*
+import kotlin.concurrent.timer
 
 class MainActivity : AppCompatActivity() {
     companion object {
@@ -25,46 +27,57 @@ class MainActivity : AppCompatActivity() {
         private const val CHANNEL_ID = "PROTIFY_NEW_NOTIF_CHANNEL_ID"
     }
     private val communicationManager = CommunicationManager(this)
-    private var selectedClient = ""
+    private var selectedClient: UUID = EMPTY_UUID
     private val notificationId: Int by lazy {
         Random().nextInt(100)
     }
+    private val pendingMessages = ConcurrentStack<String>(0)
+    private var debugViewFlushTimer: Timer? = null
     private fun dlog(message: String) {
         Log.d(TAG, message)
-        messageToDebugTextView("$TAG>$message")
+        messageToDebugTextViewAsync("$TAG>$message")
     }
-    fun messageToDebugTextView(message: String) {
-        runOnUiThread {
-            findViewById<TextView>(R.id.debugTextView).run {
-                text = "${text.toString()}\n$message"
+    private var debugViewText = ""
+    fun messageToDebugTextViewAsync(message: String, dontKeepPending: Boolean = false): Deferred<Boolean> {
+        return CoroutineScope(Main).async {
+            val view = findViewById<TextView?>(R.id.debugTextView)
+            return@async if (view == null) {
+                println("View is null, pendingMessages+1: ${pendingMessages.size()}")
+                if (!dontKeepPending) {
+                    pendingMessages.push(message)
+                }
+                false
+            } else {
+                debugViewText = "$debugViewText\n$message"
+                view.text = debugViewText
+                true
             }
         }
     }
-    fun onClientsUpdate() {
-        dlog("Asking for Connected Clients")
-        communicationManager.askForConnectedClients()
-        if (selectedClient != "") {
-            val index = clientsListAdapter.dataSet.indexOf(selectedClient)
-            if (index != -1) {
-                communicationManager.askForClientProcessus(index)
-            }
+//    fun onClientsUpdate() {
+//        dlog("Asking for Connected Clients")
+//        communicationManager.askForConnectedClients()
+//        if (selectedClient.isNotEmpty()) {
+//            dlog("Asking for client ${selectedClient}'s processus")
+//            communicationManager.askForClientProcessus(selectedClient)
+//        } else {
+//            dlog("Selected client is empty")
+//        }
+//    }
+    private fun onConnectedClientsReceived(connectedClients: List<Client>) {
+//        dlog("selectedClient : $selectedClient, Received Connected Clients: $connectedClients")
+        if (selectedClient.isEmpty() && connectedClients.isNotEmpty()) {
+            selectedClient = connectedClients[0].uuid
+            communicationManager.askForClientProcessus(selectedClient)
         }
-    }
-    fun onConnectedClientsReceived(connectedClients: List<String>) {
-        dlog("selectedClient : $selectedClient, Received Connected Clients: $connectedClients")
-        if (selectedClient == "" && connectedClients.isNotEmpty()) {
-            selectedClient = connectedClients[0]
-            dlog("selectedClient : $selectedClient, Asking for Client processus")
-            communicationManager.askForClientProcessus(0)
-        }
-        if (selectedClient != "" && !connectedClients.contains(selectedClient)) {
+        if (selectedClient.isNotEmpty() && !connectedClients.contains(selectedClient)) {
             if (connectedClients.isEmpty()) {
-                selectedClient = ""
+                selectedClient = EMPTY_UUID
                 processusListAdapter.dataSet = listOf()
                 processusListAdapter.notifyDataSetChanged()
             } else {
-                selectedClient = connectedClients[0]
-                communicationManager.askForClientProcessus(0)
+                selectedClient = connectedClients[0].uuid
+                communicationManager.askForClientProcessus(selectedClient)
             }
         }
         runOnUiThread {
@@ -72,18 +85,18 @@ class MainActivity : AppCompatActivity() {
             clientsListAdapter.notifyDataSetChanged()
         }
 }
-    fun onClientProcessusReceived(processus: List<String>, clientName: String) {
-        if (clientName == selectedClient) {
+    private fun onClientProcessusReceived(clientProcessus: List<String>, clientUuid: UUID) {
+        if (clientUuid == selectedClient) {
             runOnUiThread {
-                processusListAdapter.dataSet = processus
+                processusListAdapter.dataSet = clientProcessus
                 processusListAdapter.notifyDataSetChanged()
             }
         }
     }
     fun onClientClicked(position: Int) {
-        selectedClient = clientsListAdapter.dataSet[position]
+        selectedClient = clientsListAdapter.dataSet[position].uuid
         runOnUiThread {
-            communicationManager.askForClientProcessus(position)
+            communicationManager.askForClientProcessus(selectedClient)
         }
     }
     fun onNewNotification(message: String) {
@@ -92,7 +105,7 @@ class MainActivity : AppCompatActivity() {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
         val pendingIntent: PendingIntent = PendingIntent.getActivity(this, 0, intent, 0)
-        var notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_finished)
                 .setContentTitle(message)
@@ -112,8 +125,8 @@ class MainActivity : AppCompatActivity() {
             notify(notificationId, notification)
         }
     }
-    private val clientsListAdapter : StringListViewAdapter by lazy {
-        StringListViewAdapter(this, listOf())
+    private val clientsListAdapter : ClientListViewAdapter by lazy {
+        ClientListViewAdapter(this, listOf())
     }
     private val processusListAdapter : StringListViewAdapter by lazy {
         StringListViewAdapter(this, listOf())
@@ -137,11 +150,29 @@ class MainActivity : AppCompatActivity() {
         }
         communicationManager.setOnConnectedClients(::onConnectedClientsReceived)
         communicationManager.setOnClientProcessus(::onClientProcessusReceived)
+        dlog("Starting SERVER SERVICE....")
         communicationManager.startServerService()
+        dlog("Server service STARTED, BINDING TO SERVER !")
         communicationManager.bindToServer()
     }
     override fun onStart() {
             super.onStart()
+        debugViewFlushTimer = timer("flushToViewTimer",
+            false,
+            1000,
+            3000) {
+            val tmpStack = Stack<String>()
+            pendingMessages.popEach {
+                runBlocking {
+                    CoroutineScope(Dispatchers.IO).launch {
+                        if (!messageToDebugTextViewAsync(it, dontKeepPending = true).await()) {
+                            tmpStack.push(it)
+                        }
+                    }
+                }
+            }
+            tmpStack.forEach { pendingMessages.push(it) }
+        }
         setContentView(R.layout.activity_main)
         findViewById<RecyclerView>(R.id.clientsListView).run {
             adapter = clientsListAdapter
@@ -162,6 +193,7 @@ class MainActivity : AppCompatActivity() {
     }
     override fun onDestroy() {
         println("[log] MainActivity: On Destroy")
+        debugViewFlushTimer?.cancel()
         communicationManager.stopEverything()
         super.onDestroy()
     }
