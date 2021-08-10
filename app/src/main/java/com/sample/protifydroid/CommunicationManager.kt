@@ -27,27 +27,17 @@ class CommunicationManager(private val activity: MainActivity) {
     private var stoppedEverything = AtomicBoolean(false)
     private var onClientProcessusCallback: ((List<String>, UUID)->Unit)? = null
     private var onConnectedClients: ((List<Client>)->Unit)? = null
-//    private var incomingHandler: IncomingHandler? = null
-//    private var incomingHandlerLooper: Looper? = null
-//    private var incomingHandlerThread: HandlerThread? = null
-//    private var mMessenger: Messenger? = null
     private var mLocalPort: Int? = null
     private var mResolvedservicename: String = "Unknown"
     private val registrationListener = object : NsdManager.RegistrationListener {
         override fun onServiceRegistered(serviceInfo: NsdServiceInfo) {
-            // Save the service name. Android may have changed it in order to
-            // resolve a conflict, so update the name you initially requested
-            // with the name Android actually used.
             mResolvedservicename = serviceInfo.serviceName
             dlog("Service registered: ${serviceInfo.serviceName}")
         }
         override fun onRegistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
-            // Registration failed! Put debugging code here to determine why.
             dlog("Failed to register service ${serviceInfo.serviceName}: $errorCode")
         }
         override fun onServiceUnregistered(serviceInfo: NsdServiceInfo) {
-            // Service has been unregistered. This only happens when you call
-            // NsdManager.unregisterService() and pass in this listener.
             dlog("Service unregistered: ${serviceInfo.serviceName}")
         }
         override fun onUnregistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
@@ -58,45 +48,21 @@ class CommunicationManager(private val activity: MainActivity) {
     private val nsdManager : NsdManager by lazy {
         (activity.getSystemService(NSD_SERVICE) as NsdManager)
     }
-//    private var mServiceIBinder: IBinder? = null
     private var mIsBound = false
-    private var connectedClientsRequesterTimer: Timer? = null
-//    private var serviceBinderChecker: BinderChecker? = null
+    private var allUpdatesRequester: Timer? = null
     private val mConnection: ServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(
             className: ComponentName,
             service: IBinder
         ) {
-            // This is called when the connection with the service has been
-            // established, giving us the service object we can use to
-            // interact with the service.  We are communicating with our
-            // service through an IDL interface, so get a client-side
-            // representation of that from the raw service object.
-//            if (ServerService.ServiceIBinder != null) {
-//                ServerService.SingletoneService?.destroyMessenger()
-//                ServerService.SingletoneService?.createMessenger()
-//                mService = Messenger(ServerService.SingletoneService?.createIBinder())
-            Messenger(ServerService.SingletoneService?.createIBinder()).let { messenger ->
-//                serviceBinderChecker = BinderChecker(activity)
-//                serviceBinderChecker?.let {
-//                    messenger.?.linkToDeath(it, 0)
-//                    dlog("Linked IBINDER to death tracker !")
-//                }
-                sendRegisterClient(messenger)
-                mIsBound = true
-                createConnectedClientsRequesterTimer()
-                dlog("Connected to server service")
+            withServerMessengerScope { messengerScope ->
+                sendRegisterClient(messengerScope)
             }
-
-//            } else {
-//                dlog("Service IBinder is null, can't bind")
-//            }
+            mIsBound = true
+            createAllUpdatesRequester()
+            dlog("Connected to server service")
         }
         override fun onServiceDisconnected(className: ComponentName) {
-            // This is called when the connection with the service has been
-            // unexpectedly disconnected -- that is, its process crashed.
-//            mService = null
-            // As part of the sample, tell the user what happened.
             Toast.makeText(
                 activity, "Server Service disconnected",
                 Toast.LENGTH_SHORT
@@ -111,6 +77,12 @@ class CommunicationManager(private val activity: MainActivity) {
             super.onNullBinding(name)
         }
     }
+    fun withServerMessengerScope(body: (messengerScope: MessengerScope)->Unit) {
+        val scope = ServerService.SingletoneService?.createMessengerScope()
+        scope?.let { scope ->
+            body(scope)
+        }
+    }
     fun startServerService() {
         activity.startService(Intent(activity, ServerService::class.java).apply{
             putExtra(ServerService.STOP_SERVICE_INTENT_EXTRA_KEY, false)
@@ -123,75 +95,85 @@ class CommunicationManager(private val activity: MainActivity) {
             return Messenger(IncomingHandler(looper))
         }
     }
-    private fun sendMessage(messenger: Messenger,
+    private fun sendMessage(messengerScope: MessengerScope,
                             code: Int,
                             arg1: Int? = null,
-                            setReplyTo: Boolean = false) {
+                            setReplyTo: Boolean = false,
+                            setIsLastMessage: Boolean = false) {
         if (mIsBound) {
             CoroutineScope(Dispatchers.IO).launch {
-//                Messenger(ServerService.SingletoneService?.createIBinder()).let { messenger ->
-                    try {
-                        val msg: Message = when (arg1) {
-                            null -> Message.obtain(
-                                null,
-                                code
-                            )
-                            else -> Message.obtain(
-                                null,
-                                code, arg1, 0, null
-                            )
-                        }.apply {
-                            if (setReplyTo) {
-                                replyTo = createMessenger()
-                            }
+                try {
+                    val msg: Message = when (arg1) {
+                        null -> Message.obtain(
+                            null,
+                            code
+                        )
+                        else -> Message.obtain(
+                            null,
+                            code, arg1, 0, null
+                        )
+                    }.apply {
+                        if (setReplyTo) {
+                            replyTo = createMessenger()
                         }
-                        messenger.send(msg)
-                    } catch (e: Exception) {
-                        dlog("Failed to sendMessage: $e")
+                        if (setIsLastMessage) {
+                            setLastMessage(messengerScope.uuid)
+                        }
                     }
-//                }
+                    messengerScope.messenger.send(msg)
+                } catch (e: Exception) {
+                    dlog("Failed to sendMessage: $e")
+                }
             }
         }
     }
-    private fun sendBundleMessage(messenger: Messenger,
+    private fun sendBundleMessage(messengerScope: MessengerScope,
                                   code: Int,
                                   data: Bundle,
-                                  setReplyTo: Boolean = false) {
+                                  setReplyTo: Boolean = false,
+                                  setIsLastMessage: Boolean = false) {
         if (mIsBound) {
             CoroutineScope(Dispatchers.IO).launch {
-//                Messenger(ServerService.ServiceIBinder).let { messenger ->
-                    try {
-                        val msg: Message = Message.obtain(
-                            null, code
-                        ).also {
-                            it.data = data
-                            if (setReplyTo) {
-                                it.replyTo = createMessenger()
-                            }
+                try {
+                    val msg: Message = Message.obtain(
+                        null, code
+                    ).also {
+                        it.data = data
+                        if (setReplyTo) {
+                            it.replyTo = createMessenger()
                         }
-                        messenger.send(msg)
-                        dlog("Bundle message sent ! ${messenger.binder.isBinderAlive}")
-                    } catch (e: Exception) {
-                        dlog("Failed to send bundle message: $e")
+                        if (setIsLastMessage) {
+                            it.setLastMessage(messengerScope.uuid)
+                        }
                     }
-//                }
+                    messengerScope.messenger.send(msg)
+                } catch (e: Exception) {
+                    dlog("Failed to send bundle message: $e")
+                }
             }
         } else {
-            dlog("LOL LOL Can't send message, not bound yet")
+            dlog("Can't send message, not bound yet")
         }
     }
-    fun askForClientProcessus(uuid: UUID, messenger: Messenger? = null) {
-        dlog("LOL LOL LOL ASKING CLIENT PROCESSUS")
-        val usedMessenger = messenger ?: Messenger(ServerService.SingletoneService?.createIBinder())
-        sendBundleMessage(usedMessenger, ServerService.MSG_ASK_CLIENT_PROCESSUS,
-            bundleOf(ServerService.CLIENT_UUID_BUNDLE_KEY to uuid), setReplyTo = true)
+
+    private fun askForAllUpdates(messengerScope: MessengerScope, setIsLastMessage: Boolean = false) {
+        sendMessage(messengerScope, ServerService.MSG_ASK_ALL_UPDATE,
+            setReplyTo = true, setIsLastMessage = setIsLastMessage)
+    }
+    private fun askForClientProcessus(uuid: UUID, messengerScope: MessengerScope, setIsLastMessage: Boolean = false) {
+        sendBundleMessage(messengerScope, ServerService.MSG_ASK_CLIENT_PROCESSUS,
+            bundleOf(ServerService.CLIENT_UUID_BUNDLE_KEY to uuid), setReplyTo = true,
+            setIsLastMessage = setIsLastMessage)
+    }
+    fun askForClientProcessus(uuid: UUID, setIsLastMessage: Boolean = false) {
+        withServerMessengerScope { messengerScope ->
+            askForClientProcessus(uuid, messengerScope, setIsLastMessage = setIsLastMessage)
+        }
     }
     fun setOnClientProcessus(callback: (List<String>, UUID)->Unit) {
         onClientProcessusCallback = callback
     }
-    private fun askForConnectedClients(messenger: Messenger) {
-        sendMessage(messenger, ServerService.MSG_ASK_CONNECTED_CLIENTS, setReplyTo = true)
-    }
+
     fun setOnConnectedClients(callback: (List<Client>)->Unit) {
         onConnectedClients = callback
     }
@@ -210,13 +192,8 @@ class CommunicationManager(private val activity: MainActivity) {
                     nsdManager.unregisterService(registrationListener)
                 } catch (e: IllegalArgumentException) {}
             }
-            connectedClientsRequesterTimer?.cancel()
+            allUpdatesRequester?.cancel()
             unbindFromServer()
-//            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
-//                incomingHandlerLooper?.quitSafely()
-//                incomingHandlerThread?.quitSafely()
-//            }
-//            incomingHandlerThread?.join()
             stoppedEverything.set(true)
         }
     }
@@ -232,10 +209,7 @@ class CommunicationManager(private val activity: MainActivity) {
             return
         }
         dlog("Registering service with local port : $mLocalPort")
-        // Create the NsdServiceInfo object, and populate it.
         val serviceInfo = NsdServiceInfo().apply {
-            // The name is subject to change based on conflicts
-            // with other services advertised on the same network.
             serviceName = "ProtifyAndroidServer"
             serviceType = SERVICE_TYPE
             port = SERVICE_PORT
@@ -260,8 +234,6 @@ class CommunicationManager(private val activity: MainActivity) {
                 ServerService.MSG_PORT_ASSIGNED -> onServerPortAssigned(msg.arg1)
                 ServerService.MSG_DEBUG_MESSAGE ->
                     activity.messageToDebugTextViewAsync(msg.data[ServerService.MESSAGE_BUNDLE_KEY] as String)
-                ServerService.MSG_NEW_NOTIFICATION ->
-                    activity.onNewNotification(msg.data[ServerService.MESSAGE_BUNDLE_KEY] as String)
                 ServerService.MSG_CLIENT_PROCESSUS_ANWSER -> {
                     val processusList = (msg.data[ServerService.PROCESSUS_BUNDLE_KEY] as? List<*>)
                     val uuid = msg.data[ServerService.CLIENT_UUID_BUNDLE_KEY] as? UUID
@@ -285,48 +257,39 @@ class CommunicationManager(private val activity: MainActivity) {
             }
         }
     }
-    /**
-     * Target we publish for clients to send messages to IncomingHandler.
-     */
-    /**
-     * Class for interacting with the main interface of the service.
-     */
-    private fun sendRegisterClient(messenger: Messenger) {
+    private fun sendRegisterClient(messengerScope: MessengerScope,
+                                   setIsLastMessage: Boolean = false) {
         dlog("Sending MSG_REGISTER_CLIENT to service")
         val msg: Message = Message.obtain(
             null,
             ServerService.MSG_REGISTER_CLIENT
         ).apply {
             replyTo = createMessenger()
+            if (setIsLastMessage) {
+                setLastMessage(messengerScope.uuid)
+            }
         }
-//        if (mService == null) {
-//            dlog("Error connecting to server service, service is null")
-//        }
         runBlocking {
             CoroutineScope(Dispatchers.IO).launch {
-//                Messenger(ServerService.ServiceIBinder).let { messenger ->
-                    try {
-                        messenger.send(msg)
-                        askForClientProcessus(UUID.randomUUID(), messenger)
-                    } catch (e: Exception) {
-                        dlog("Failed to send MSG_REGISTER_CLIENT to service: $e")
-                    }
-//                }
+                try {
+                    messengerScope.messenger.send(msg)
+                    askForClientProcessus(UUID.randomUUID(), messengerScope)
+                } catch (e: Exception) {
+                    dlog("Failed to send MSG_REGISTER_CLIENT to service: $e")
+                }
             }
         }
     }
-    private fun createConnectedClientsRequesterTimer() {
-        connectedClientsRequesterTimer = timer(
-            "CommManagerConnectedClientsRequester", initialDelay = 1000, period = 1000) {
-            askForConnectedClients(Messenger(ServerService.SingletoneService?.createIBinder()))
+    private fun createAllUpdatesRequester() {
+        allUpdatesRequester = timer(
+            "CommManagerAllUpdatesRequester", initialDelay = 1000, period = 1000) {
+            withServerMessengerScope { messengerScope ->
+                askForAllUpdates(messengerScope, setIsLastMessage = true)
+            }
         }
     }
     fun bindToServer() {
-
-        // Establish a connection with the service.  We use an explicit
-        // class name because there is no reason to be able to let other
-        // applications replace our component.
-        dlog("BINDING TO SERVICE....")
+        dlog("Binding to service...")
         try {
             activity.bindService(
                 Intent(
@@ -341,18 +304,17 @@ class CommunicationManager(private val activity: MainActivity) {
     }
     private fun unbindFromServer() {
         if (mIsBound) {
-            // If we have received the service, and hence registered with
-            // it, then now is the time to unregister.
             CoroutineScope(Dispatchers.IO).launch {
-                Messenger(ServerService.SingletoneService?.createIBinder()).let { messenger ->
+                withServerMessengerScope { messengerScope ->
                     try {
                         val msg: Message = Message.obtain(
                             null,
                             ServerService.MSG_UNREGISTER_CLIENT
                         ).apply {
                             replyTo = createMessenger()
+                            setLastMessage(messengerScope.uuid)
                         }
-                        messenger.send(msg)
+                        messengerScope.messenger.send(msg)
                     } catch (e: Exception) {
                         dlog("Failed to send unbind message: $e")
                     }

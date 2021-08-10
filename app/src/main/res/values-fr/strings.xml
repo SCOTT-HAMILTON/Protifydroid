@@ -13,4 +13,8 @@
     <string name="server_notif_channel_description">Canal de notifications utilisé pour controller le server</string>
     <string name="server_notif_channel_name">Notification du serveur</string>
     <string name="stop_server_notif_action_text">Arrêter le serveur</string>
+    <string name="error_failed_on_bind">Impossible d\'appeler onBind sur le service, le messenger est invalide</string>
+    <string name="service_starting_text">Le serveur démarre...</string>
+    <string name="server_started_text">Le serveur est démarré</string>
+    <string name="notif_process_died_template">Le processus %1$s est terminé.</string>
 </resources>

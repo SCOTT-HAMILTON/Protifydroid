@@ -54,37 +54,30 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-//    fun onClientsUpdate() {
-//        dlog("Asking for Connected Clients")
-//        communicationManager.askForConnectedClients()
-//        if (selectedClient.isNotEmpty()) {
-//            dlog("Asking for client ${selectedClient}'s processus")
-//            communicationManager.askForClientProcessus(selectedClient)
-//        } else {
-//            dlog("Selected client is empty")
-//        }
-//    }
     private fun onConnectedClientsReceived(connectedClients: List<Client>) {
-//        dlog("selectedClient : $selectedClient, Received Connected Clients: $connectedClients")
-        if (selectedClient.isEmpty() && connectedClients.isNotEmpty()) {
-            selectedClient = connectedClients[0].uuid
-            communicationManager.askForClientProcessus(selectedClient)
+        if (!connectedClients.contains(selectedClient)) {
+            selectedClient = EMPTY_UUID
         }
-        if (selectedClient.isNotEmpty() && !connectedClients.contains(selectedClient)) {
-            if (connectedClients.isEmpty()) {
-                selectedClient = EMPTY_UUID
-                processusListAdapter.dataSet = listOf()
-                processusListAdapter.notifyDataSetChanged()
-            } else {
+//        dlog("selectedClient : $selectedClient, Received Connected Clients: $connectedClients")
+        if (selectedClient == EMPTY_UUID) {
+            if (connectedClients.isNotEmpty()) {
                 selectedClient = connectedClients[0].uuid
                 communicationManager.askForClientProcessus(selectedClient)
+            } else {
+                selectedClient = EMPTY_UUID
+                runOnUiThread {
+                    processusListAdapter.dataSet = listOf()
+                    processusListAdapter.notifyDataSetChanged()
+                }
             }
+        } else {
+            communicationManager.askForClientProcessus(selectedClient)
         }
         runOnUiThread {
-            clientsListAdapter.dataSet = connectedClients
             clientsListAdapter.notifyDataSetChanged()
+            clientsListAdapter.dataSet = connectedClients
         }
-}
+    }
     private fun onClientProcessusReceived(clientProcessus: List<String>, clientUuid: UUID) {
         if (clientUuid == selectedClient) {
             runOnUiThread {
@@ -97,32 +90,6 @@ class MainActivity : AppCompatActivity() {
         selectedClient = clientsListAdapter.dataSet[position].uuid
         runOnUiThread {
             communicationManager.askForClientProcessus(selectedClient)
-        }
-    }
-    fun onNewNotification(message: String) {
-        // Create an explicit intent for an Activity in your app
-        val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        }
-        val pendingIntent: PendingIntent = PendingIntent.getActivity(this, 0, intent, 0)
-        val notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Notification.Builder(this, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_finished)
-                .setContentTitle(message)
-                .setContentText("")
-                .setContentIntent(pendingIntent)
-                .setChannelId(CHANNEL_ID)
-                .setAutoCancel(true)
-                .setColorized(true)
-                .setColor(getColor(R.color.notification_color))
-                .build()
-        } else {
-            TODO("VERSION.SDK_INT < O")
-        }
-        with(getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager) {
-            // notificationId is a unique int for each notification that you must define
-            dlog("\n\n\tNEW NOTIFICATION LAUNCHED!\n")
-            notify(notificationId, notification)
         }
     }
     private val clientsListAdapter : ClientListViewAdapter by lazy {
