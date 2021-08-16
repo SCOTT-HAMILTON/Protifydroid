@@ -15,7 +15,6 @@ import androidx.core.os.bundleOf
 import com.conversantmedia.util.concurrent.ConcurrentStack
 import kotlinx.coroutines.*
 import java.util.*
-import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * This is an example of implementing an application service that uses the
@@ -29,25 +28,6 @@ import java.util.concurrent.atomic.AtomicBoolean
  * interact with the user, rather than doing something more disruptive such as
  * calling startActivity().
  */
-
-
-/* class to know if a binder is still alive */
-class BinderChecker(private val context: Context) : IBinder.DeathRecipient {
-    private val died: AtomicBoolean = AtomicBoolean(false)
-    fun isBinderDead(): Boolean {
-        return died.get()
-    }
-    override fun binderDied() {
-        Toast.makeText(context, "Binder DIED!!!", Toast.LENGTH_SHORT).show()
-        died.set(true)
-    }
-}
-
-data class HandlerScope(val handler: Handler,
-                        val looper: Looper,
-                        val thread: HandlerThread)
-
-data class MessengerScope(val messenger: Messenger, val handlerScope: HandlerScope, val uuid: UUID)
 
 class ServerService : Service() {
     /** Keeps track of all current registered clients.  */
@@ -371,36 +351,10 @@ class ServerService : Service() {
     }
     companion object {
         var SingletoneService: ServerService? = null
-        /**
-         * Command to the service to register a client, receiving callbacks
-         * from the service.  The Message's replyTo field must be a Messenger of
-         * the client where callbacks should be sent.
-         */
-        const val MSG_REGISTER_CLIENT = 1
-        /**
-         * Command to the service to unregister a client, ot stop receiving callbacks
-         * from the service.  The Message's replyTo field must be a Messenger of
-         * the client as previously given with MSG_REGISTER_CLIENT.
-         */
-        const val MSG_SCOPE_UNUSED = -10
-
-        const val MSG_UNREGISTER_CLIENT = 2
-        const val MSG_PORT_ASSIGNED = 3
-        const val MSG_DEBUG_MESSAGE = 4
-        const val MSG_ASK_ALL_UPDATE = 6
-        const val MSG_ASK_CLIENT_PROCESSUS = 7
-        const val MSG_CLIENT_PROCESSUS_ANWSER = 8
-        const val MSG_ASK_CONNECTED_CLIENTS = 9
-        const val MSG_CONNECTED_CLIENTS_ANWSER = 10
 
         const val FOREGROUND_NOTIF_CHANNEL_ID = "PROTIFY_SERVER_NOTIF_CHANNEL_ID"
         const val PROCESS_DIED_CHANNEL_ID = "PROTIFY_SERVER_PROCESS_DIED_CHANNEL_ID"
 
-        const val PROCESSUS_BUNDLE_KEY = "processus"
-        const val CLIENT_UUID_BUNDLE_KEY = "clientUuid"
-        const val SCOPE_UUID_BUNDLE_KEY = "scopeUuid"
-        const val CONNECTED_CLIENTS_BUNDLE_KEY = "connectedClients"
-        const val MESSAGE_BUNDLE_KEY = "message"
         const val STOP_SERVICE_INTENT_EXTRA_KEY = "stopService"
     }
 }

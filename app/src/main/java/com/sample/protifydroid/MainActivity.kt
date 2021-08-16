@@ -21,10 +21,12 @@ import kotlinx.coroutines.Dispatchers.Main
 import java.util.*
 import kotlin.concurrent.timer
 
+
 class MainActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "MainActivity"
         private const val CHANNEL_ID = "PROTIFY_NEW_NOTIF_CHANNEL_ID"
+        private val EMPTY_UUID: UUID = UUID.fromString("00000000-0000-0000-0000-000000000000")
     }
     private val communicationManager = CommunicationManager(this)
     private var selectedClient: UUID = EMPTY_UUID
